@@ -127,6 +127,7 @@ The schema is intentionally registry-agnostic:
 | `registry_id` + `registry_source` | Universal compound key across registries |
 | `brief_title`, `official_title` | Every registry has these |
 | `status`, `phase`, `study_type` | Universal trial metadata |
+| `brief_summary` | Abstract/description of the trial, keeping ct.gov's naming here, i think in these trials it can be abstract OR desc |
 | `conditions`, `interventions` | JSON arrays — flexible for varying cardinality |
 | `primary_outcome` | What the trial is measuring |
 | `eligibility_criteria` | Who can participate |
@@ -145,18 +146,5 @@ The app includes a built-in scheduler that keeps the database fresh without exte
 
 Upserts make overlap harmless — re-fetching a trial just updates the existing row.
 
-## Future Improvements
+<img width="1440" height="818" alt="image" src="https://github.com/user-attachments/assets/bf10bd0e-a5b4-4c8d-9900-6bf9202eba4a" />
 
-These are documented tradeoffs made to deliver working software within the time constraint:
-
-- **Additional registries**: The schema and transformer pattern support this — add a new transformer per registry (EU CTIS, ISRCTN, WHO ICTRP, ANZCTR)
-- **Authentication**: API keys or OAuth for the harvest trigger endpoint
-- **Rate limiting**: Protect the API from abuse
-- **Database migrations**: Currently uses `create_all()`; production would use Alembic
-- **PostgreSQL**: For production scale, swap SQLite for Postgres (single env var change)
-- **Full-text search**: SQLite FTS5 or Postgres tsvector for searching trial descriptions
-- **Comprehensive test suite**: Unit tests for transformer, integration tests for API
-- **Data normalization**: Standardize condition names via MeSH ontology, normalize phase values across registries
-- **Monitoring/alerting**: Track harvest failures, API latency
-- **Caching**: Redis or in-memory cache for hot queries
-- **CI/CD pipeline**: Automated testing and deployment
