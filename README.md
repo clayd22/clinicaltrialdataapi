@@ -101,6 +101,15 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ClinicalTrials.gov API v2 ──> Harvester ──> Transformer ──> SQLite DB ──> REST API ──> OpenAlex
 ```
 
+## Tradeoffs and what needs to be added
+
+- SQLite is a major tradeoff here for me, for this assignment using it made sense because I was able to get the DB up in literally 10
+  minutes, but the write concurrency limit is impractical so I'd have to swap to Postgres or similar.
+- There is no systematic testing, the process was essentially manually viewing how 5-10 of the nested Json objects mapped to my flat
+  format and ensuring everything looked good.  A systematic way to track loss here to ensure it doesn't get worse in a significant number
+  of cases would be something I'd want to add, but like you mentioned we are trading a lot of 1% cases for speed.
+- raw_json stored in SQLite, the pro of this is that it keeps full fidelity to source data but bloats the DB (~11GB). Production might store raw payloads in object storage or a separate table.
+  
 - **Harvester** (`app/services/harvester.py`): Async HTTP client that paginates through the ClinicalTrials.gov API (1000 trials/page), respecting rate limits (~50 req/min). Supports full and incremental harvests via `LastUpdatePostDate` filtering.
 - **Transformer** (`app/services/transformer.py`): Maps CT.gov's deeply nested JSON into a flat, generalizable schema. Each registry would get its own transformer.
 - **Scheduler** (`app/services/scheduler.py`): Internal background scheduler that automatically runs incremental harvests hourly (2h lookback) and a wider daily sweep (48h lookback) to catch anything missed.
