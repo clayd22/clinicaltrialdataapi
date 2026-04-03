@@ -4,59 +4,46 @@ Abstraction layer between clinical trial registries and downstream consumers. Ha
 
 Designed as middleware: the schema and API are registry-agnostic so additional sources (EU CTIS, ISRCTN, WHO ICTRP) can be added without changing the consumer interface.
 
-## Live Instance
+## Hosted API
 
-A hosted version is running with **578,873 clinical trials** pre-loaded as of April 2nd and an internal scheduler keeping the data fresh with hourly delta syncs as well as a daily wider window delta sync.  I'm familiar with Njalla so spun up the server and domain there.
+A live instance is running at `http://clintrial-api.com:8000` with **578,873 clinical trials** loaded as of April 2nd. An internal scheduler keeps the data fresh with hourly and daily delta syncs. Server and domain are on Njalla.
 
-```
-http://clintrial-api.com:8000
-```
+Interactive docs: `http://clintrial-api.com:8000/docs`
 
-Try it now:
+### Bulk Export
+
 ```bash
-# Health check
-curl http://clintrial-api.com:8000/
+# Full CSV export (~578K trials)
+curl -o trials.csv http://clintrial-api.com:8000/trials/bulk
 
-# Browse trials
-curl "http://clintrial-api.com:8000/trials?limit=5"
+# NDJSON (recommended for nested fields like conditions, interventions, locations)
+curl -o trials.ndjson "http://clintrial-api.com:8000/trials/bulk?format=ndjson"
+```
 
-# Single trial
+### Incremental Updates
+
+Returns trials updated on or after the given date, plus a `cursor` to use as `since` on the next call.
+
+```bash
+curl "http://clintrial-api.com:8000/trials/updates?since=2026-04-01"
+# Response includes: "cursor": "2026-04-02T00:00:00"
+
+# Next call — use the cursor
+curl "http://clintrial-api.com:8000/trials/updates?since=2026-04-02T00:00:00"
+```
+
+### Browse and Search
+
+```bash
+# Paginated listing with filters
+curl "http://clintrial-api.com:8000/trials?limit=10&status=RECRUITING"
+
+# Single trial by NCT number
 curl http://clintrial-api.com:8000/trials/NCT07226206
 
-# Interactive docs
-open http://clintrial-api.com:8000/docs
-```
-
-## Quick Start (Local)
-
-```bash
-# Install
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# Run
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# Trigger full harvest (~500K trials, takes ~15-25 min)
-curl -X POST "http://localhost:8000/harvest/trigger?full=true"
-
-# Monitor progress
-curl http://localhost:8000/harvest/status
-```
-
-## API Reference
-
-All examples use the live instance. Replace `clintrial-api.com:8000` with `localhost:8000` for local development.
-
-### `GET /`
-Health check and stats.
-```bash
+# Health check
 curl http://clintrial-api.com:8000/
-# {"total_trials": 578873, "last_harvest": "2026-04-03T...", "status": "idle"}
 ```
-
-### `GET /trials`
-Paginated list of trials with optional filters.
 
 | Param | Default | Description |
 |---|---|---|
@@ -65,69 +52,47 @@ Paginated list of trials with optional filters.
 | `status` | — | Filter by status (e.g., RECRUITING, COMPLETED) |
 | `registry_source` | — | Filter by source registry |
 
-```bash
-curl "http://clintrial-api.com:8000/trials?limit=10&status=RECRUITING"
-```
-
-### `GET /trials/{registry_id}`
-Single trial by registry ID (e.g., NCT number).
-```bash
-curl http://clintrial-api.com:8000/trials/NCT07226206
-```
-
-### `GET /trials/bulk`
-Streaming bulk export of all trials. Supports two formats via the `format` query parameter:
-
-- `?format=csv` (default) — CSV download
-- `?format=ndjson` — Newline-delimited JSON (recommended for nested fields like conditions, interventions, locations)
+### Harvest Control
 
 ```bash
-# CSV
-curl -o trials.csv http://clintrial-api.com:8000/trials/bulk
-
-# NDJSON (578K lines, one per trial)
-curl -o trials.ndjson "http://clintrial-api.com:8000/trials/bulk?format=ndjson"
-```
-
-### `GET /trials/updates?since=YYYY-MM-DD`
-Incremental endpoint for daily harvesting. Returns trials updated on or after the given date, plus a `cursor` value to use as `since` on the next call.
-
-```bash
-# First call
-curl "http://clintrial-api.com:8000/trials/updates?since=2026-04-01"
-# Response includes: "cursor": "2026-04-02T00:00:00"
-
-# Next call — use the cursor
-curl "http://clintrial-api.com:8000/trials/updates?since=2026-04-02T00:00:00"
-```
-
-### `POST /harvest/trigger`
-Start a background harvest from ClinicalTrials.gov.
-
-| Param | Default | Description |
-|---|---|---|
-| `full` | false | Harvest all trials (true) or incremental (false) |
-| `since` | 2 days ago | For incremental: start date |
-
-```bash
-# Full harvest
+# Full harvest (~500K trials, takes ~15-25 min)
 curl -X POST "http://clintrial-api.com:8000/harvest/trigger?full=true"
 
-# Incremental
+# Incremental harvest from a specific date
 curl -X POST "http://clintrial-api.com:8000/harvest/trigger?since=2026-03-29"
-```
 
-### `GET /harvest/status`
-Check harvest progress.
-```bash
+# Check progress
 curl http://clintrial-api.com:8000/harvest/status
-# {"is_running": true, "pages_fetched": 142, "total_records": 142000, ...}
 ```
 
-### `GET /docs`
-Interactive Swagger UI (auto-generated by FastAPI).
+## Local Development
+
 ```bash
-open http://clintrial-api.com:8000/docs
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Trigger full harvest to populate local DB
+curl -X POST "http://localhost:8000/harvest/trigger?full=true"
+curl http://localhost:8000/harvest/status
+```
+
+Replace `clintrial-api.com:8000` with `localhost:8000` for all API examples above.
+
+### Docker
+
+```bash
+docker build -t clinical-trials .
+docker run -p 8000:8000 -v trials_data:/data clinical-trials
+```
+
+### VPS
+
+```bash
+git clone https://github.com/clayd22/clinicaltrialdataapi.git && cd clinicaltrialdataapi
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ## Architecture
@@ -159,23 +124,6 @@ The schema is intentionally registry-agnostic:
 | `start_date`, `completion_date` | Universal timeline |
 | `last_updated` | From source — enables incremental sync |
 | `raw_json` | Complete original payload for lossless storage |
-
-## Deployment
-
-### Docker
-```bash
-docker build -t clinical-trials .
-docker run -p 8000:8000 -v trials_data:/data clinical-trials
-```
-
-### VPS
-```bash
-# On your server
-git clone https://github.com/clayd22/clinicaltrialdataapi.git && cd clinicaltrialdataapi
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
 
 ## Internal Scheduler
 
