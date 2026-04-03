@@ -109,6 +109,8 @@ ClinicalTrials.gov API v2 ──> Harvester ──> Transformer ──> SQLite D
   format and ensuring everything looked good.  A systematic way to track loss here to ensure it doesn't get worse in a significant number
   of cases would be something I'd want to add, but like you mentioned we are trading a lot of 1% cases for speed.
 - raw_json stored in SQLite, the pro of this is that it keeps full fidelity to source data but bloats the DB (~11GB). Production might store raw payloads in object storage or a separate table.
+- There are also a few usability features I wanted to add but couldn't get within the 3 hour window, like delta fetching output as csv,
+  accurate download time information, and endpoints to see the number of stored clinical trials without fetching.
   
 - **Harvester** (`app/services/harvester.py`): Async HTTP client that paginates through the ClinicalTrials.gov API (1000 trials/page), respecting rate limits (~50 req/min). Supports full and incremental harvests via `LastUpdatePostDate` filtering.
 - **Transformer** (`app/services/transformer.py`): Maps CT.gov's deeply nested JSON into a flat, generalizable schema. Each registry would get its own transformer.
