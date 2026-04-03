@@ -6,7 +6,7 @@ Designed as middleware: the schema and API are registry-agnostic so additional s
 
 ## Live Instance
 
-A hosted version is running with **578,873 clinical trials** pre-loaded as of April 2nd and an internal scheduler keeping the data fresh:
+A hosted version is running with **578,873 clinical trials** pre-loaded as of April 2nd and an internal scheduler keeping the data fresh with hourly delta syncs as well as a daily wider window delta sync.  I'm familiar with Njalla so spun up the server and domain there.
 
 ```
 http://clintrial-api.com:8000
