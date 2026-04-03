@@ -1,14 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
 
 from fastapi import FastAPI
-from sqlalchemy import func, select
 
-from app.database import async_session, engine
-from app.models import Base, Trial
+from app.database import engine
+from app.models import Base
 from app.api import trials, harvest
-from app.schemas import StatsResponse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,21 +37,8 @@ app.include_router(trials.router)
 app.include_router(harvest.router)
 
 
-@app.get("/", response_model=StatsResponse)
+@app.get("/")
 async def root():
-    async with async_session() as session:
-        total = (await session.execute(select(func.count(Trial.id)))).scalar()
-        last = (
-            await session.execute(
-                select(func.max(Trial.harvested_at))
-            )
-        ).scalar()
-
     from app.services.harvester import harvest_manager
     status = "harvesting" if harvest_manager.status.is_running else "idle"
-
-    return StatsResponse(
-        total_trials=total,
-        last_harvest=last,
-        status=status,
-    )
+    return {"status": status, "service": "clinical-trials-middleware"}
